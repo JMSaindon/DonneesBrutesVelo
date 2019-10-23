@@ -13,9 +13,9 @@ import station_name
 
 with zipfile.ZipFile('brut.zip') as myzip:
     with myzip.open('brut/weather_bicincitta_parma.csv') as myfile:
-        weather = pd.read_csv(myfile, nrows=1000, delimiter=';', header=None, names=["Timestamp", "Status", "Clouds", "Humidity", "Pressure", "Rain", "WindGust", "WindVarEnd", "WindVarBeg", "WindDeg", "WindSpeed", "Snow", "TemperatureMax", "TemperatureMin", "TemperatureTemp"])
+        weather = pd.read_csv(myfile, delimiter=';', header=None, names=["Timestamp", "Status", "Clouds", "Humidity", "Pressure", "Rain", "WindGust", "WindVarEnd", "WindVarBeg", "WindDeg", "WindSpeed", "Snow", "TemperatureMax", "TemperatureMin", "TemperatureTemp"])
     with myzip.open('brut/status_bicincitta_parma.csv') as myfile:
-        bike = pd.read_csv(myfile, sep=';', header=None, names=["Timestamp","Station","Status","Bikes","Slots"], nrows=10000)
+        bike = pd.read_csv(myfile, sep=';', header=None, names=["Timestamp","Station","Status","Bikes","Slots"])
     with myzip.open('brut/bicincitta_parma_summary.csv') as myfile:
         stations = pd.read_csv(myfile, delimiter=';')
 
@@ -70,15 +70,42 @@ for cle, df in bike.groupby('Station'):
     Stations.append(df)
     # print(df.head(5))
 
+print('Creation des dossiers et fichiers: ')
 
 # merging step
 pathStations = "./Stations"
 if not os.path.exists(pathStations):
     os.mkdir(pathStations)
 
+lenStations = len(Stations)
+countStation = 0
 
 for station in Stations:
+    countStation += 1
+    print('Station ' + str(countStation) + '/' + str(lenStations) + ' :')
+
     pathSpecificStation = pathStations + '/' + station['Station'][0].replace('. ', '_')
+
     if not os.path.exists(pathSpecificStation):
         os.mkdir(pathSpecificStation)
-        station.to_csv(pathSpecificStation + '/1', compression='gzip') # a modifier car on doit créer différents fichiers pour les série temporelles
+
+    counter = 1
+    previousTime = station['Timestamp'][0]
+    interStation = pd.DataFrame(columns=['Timestamp', 'Station', 'Bikes', 'Slots', 'Total', 'Status', 'Humidity', 'Pressure', 'Rain', 'WindDeg', 'WindSpeed', 'Snow', 'TemperatureTemp'])
+    # print('je passe là')
+
+    for t in tqdm(range(len(station['Timestamp']))):
+
+        diff = station['Timestamp'][t] - previousTime
+        diffMin = diff.seconds / 60.
+        # print(diffMin)
+
+        if(diffMin - 10 > 0.001):
+            interStation.to_csv(pathSpecificStation + '/' + str(counter), compression='gzip')
+            counter += 1
+            interStation = pd.DataFrame(columns=['Timestamp', 'Station', 'Bikes', 'Slots', 'Total', 'Status', 'Humidity', 'Pressure', 'Rain', 'WindDeg', 'WindSpeed', 'Snow', 'TemperatureTemp'])
+
+        interStation = interStation.append(station.loc[t])
+        previousTime = station['Timestamp'][t]
+
+    interStation.to_csv(pathSpecificStation + '/' + str(counter) + '.csv.gz', compression='gzip')
