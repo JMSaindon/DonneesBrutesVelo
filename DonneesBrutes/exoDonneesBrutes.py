@@ -11,6 +11,7 @@ from joblib.memory import Memory
 
 import station_name
 
+print('loading data...')
 with zipfile.ZipFile('brut.zip') as myzip:
     with myzip.open('brut/weather_bicincitta_parma.csv') as myfile:
         weather = pd.read_csv(myfile, delimiter=';', header=None, names=["Timestamp", "Status", "Clouds", "Humidity", "Pressure", "Rain", "WindGust", "WindVarEnd", "WindVarBeg", "WindDeg", "WindSpeed", "Snow", "TemperatureMax", "TemperatureMin", "TemperatureTemp"])
@@ -18,6 +19,7 @@ with zipfile.ZipFile('brut.zip') as myzip:
         bike = pd.read_csv(myfile, sep=';', header=None, names=["Timestamp","Station","Status","Bikes","Slots"])
     with myzip.open('brut/bicincitta_parma_summary.csv') as myfile:
         stations = pd.read_csv(myfile, delimiter=';')
+print('data loaded')
 
 def parse_date(df):
     def valid_datetime(date):
@@ -40,6 +42,7 @@ def clean_bike_data(bike_df):
 
 # ///////////// Weather ///////////////////
 
+print('parsing and cleaning weather data')
 # drop useless columns
 weather = weather.drop(columns = ['Clouds', 'WindGust', 'WindVarEnd', 'WindVarBeg', 'TemperatureMax', 'TemperatureMin'])
 
@@ -53,6 +56,7 @@ weather = weather.set_index('Timestamp').resample('10min', label='right', closed
 
 # ////////////// Bike ////////////////////
 
+print('parsing and cleaning bike data')
 bike = parse_date(bike)
 bike = clean_bike_data(bike)
 # print(bike.head(10))
@@ -63,6 +67,8 @@ bike = bike.drop(columns = ['Status'])
 bike['Total'] = bike['Bikes'] + bike['Slots']
 Stations = []
 
+# resample, merge and split
+print('resampling and merging data')
 for cle, df in bike.groupby('Station'):
     # print(cle, df)
     df = df.set_index('Timestamp').resample('10min', label='right', closed='right').last().dropna().reset_index()
@@ -70,9 +76,9 @@ for cle, df in bike.groupby('Station'):
     Stations.append(df)
     # print(df.head(5))
 
+
 print('Creation des dossiers et fichiers: ')
 
-# merging step
 pathStations = "./Stations"
 if not os.path.exists(pathStations):
     os.mkdir(pathStations)
@@ -89,23 +95,24 @@ for station in Stations:
     if not os.path.exists(pathSpecificStation):
         os.mkdir(pathSpecificStation)
 
+    # split on time's gap
     counter = 1
     previousTime = station['Timestamp'][0]
-    interStation = pd.DataFrame(columns=['Timestamp', 'Station', 'Bikes', 'Slots', 'Total', 'Status', 'Humidity', 'Pressure', 'Rain', 'WindDeg', 'WindSpeed', 'Snow', 'TemperatureTemp'])
+    minIndex = 0
+    maxIndex = len(station['Timestamp']) - 1
     # print('je passe là')
 
-    for t in tqdm(range(len(station['Timestamp']))):
+    for t in tqdm(range(maxIndex + 1)):
 
         diff = station['Timestamp'][t] - previousTime
         diffMin = diff.seconds / 60.
         # print(diffMin)
 
         if(diffMin - 10 > 0.001):
-            interStation.to_csv(pathSpecificStation + '/' + str(counter), compression='gzip')
+            station.loc[minIndex : t].set_index('Timestamp').to_csv(pathSpecificStation + '/' + str(counter) + '.csv.gz', compression='gzip')
             counter += 1
-            interStation = pd.DataFrame(columns=['Timestamp', 'Station', 'Bikes', 'Slots', 'Total', 'Status', 'Humidity', 'Pressure', 'Rain', 'WindDeg', 'WindSpeed', 'Snow', 'TemperatureTemp'])
+            minIndex = t+1
 
-        interStation = interStation.append(station.loc[t])
         previousTime = station['Timestamp'][t]
 
-    interStation.to_csv(pathSpecificStation + '/' + str(counter) + '.csv.gz', compression='gzip')
+    station.loc[minIndex : maxIndex].set_index('Timestamp').to_csv(pathSpecificStation + '/' + str(counter) + '.csv.gz', compression='gzip')
