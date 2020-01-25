@@ -17,8 +17,8 @@ with zipfile.ZipFile('brut.zip') as myzip:
         weather = pd.read_csv(myfile, delimiter=';', header=None, names=["Timestamp", "Status", "Clouds", "Humidity", "Pressure", "Rain", "WindGust", "WindVarEnd", "WindVarBeg", "WindDeg", "WindSpeed", "Snow", "TemperatureMax", "TemperatureMin", "TemperatureTemp"])
     with myzip.open('brut/status_bicincitta_parma.csv') as myfile:
         bike = pd.read_csv(myfile, sep=';', header=None, names=["Timestamp","Station","Status","Bikes","Slots"])
-    with myzip.open('brut/bicincitta_parma_summary.csv') as myfile:
-        stations = pd.read_csv(myfile, delimiter=';')
+    # with myzip.open('brut/bicincitta_parma_summary.csv') as myfile:
+    #     stations = pd.read_csv(myfile, delimiter=';')
 print('data loaded')
 
 def parse_date(df):
